@@ -1,13 +1,3 @@
-/**
- * Secure Blogging Platform API
- * Multi-User + JWT Auth (Single File)
- * 
- * Dependencies:
- *   npm install express bcryptjs jsonwebtoken joi express-rate-limit uuid
- * 
- * Run:
- *   node app.js
- */
 
 const express = require("express");
 const bcrypt = require("bcryptjs");
@@ -19,30 +9,24 @@ const { v4: uuidv4 } = require("uuid");
 const app = express();
 app.use(express.json());
 
-// ─────────────────────────────────────────────
-// CONFIG
-// ─────────────────────────────────────────────
+
 const JWT_SECRET = process.env.JWT_SECRET || "super_secret_key_change_in_prod";
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || "refresh_secret_key_change_in_prod";
 const JWT_EXPIRES_IN = "15m";
 const JWT_REFRESH_EXPIRES_IN = "7d";
 const PORT = process.env.PORT || 3000;
 
-// ─────────────────────────────────────────────
-// IN-MEMORY DATA STORE (replace with DB in prod)
-// ─────────────────────────────────────────────
+
 const db = {
-  users: [],         // { id, name, email, passwordHash, role, createdAt }
-  posts: [],         // { id, userId, title, content, tags[], createdAt }
-  comments: [],      // { id, postId, userId, comment, createdAt }
-  refreshTokens: [], // valid refresh tokens
+  users: [],       
+  posts: [],        
+  comments: [],     
+  refreshTokens: [], 
 };
 
-// ─────────────────────────────────────────────
-// RATE LIMITING
-// ─────────────────────────────────────────────
+
 const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000, 
   max: 100,
   message: { error: "Too many requests. Please try again later." },
 });
@@ -55,9 +39,7 @@ const authLimiter = rateLimit({
 
 app.use(globalLimiter);
 
-// ─────────────────────────────────────────────
-// VALIDATION SCHEMAS (Joi)
-// ─────────────────────────────────────────────
+
 const schemas = {
   register: Joi.object({
     name: Joi.string().min(2).max(50).required(),
@@ -82,9 +64,7 @@ const schemas = {
   }),
 };
 
-// ─────────────────────────────────────────────
-// MIDDLEWARE: Validate Request Body
-// ─────────────────────────────────────────────
+
 const validate = (schema) => (req, res, next) => {
   const { error, value } = schema.validate(req.body, { abortEarly: false });
   if (error) {
@@ -97,9 +77,7 @@ const validate = (schema) => (req, res, next) => {
   next();
 };
 
-// ─────────────────────────────────────────────
-// MIDDLEWARE: Authenticate JWT
-// ─────────────────────────────────────────────
+
 const authenticate = (req, res, next) => {
   const authHeader = req.headers["authorization"];
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -115,9 +93,7 @@ const authenticate = (req, res, next) => {
   }
 };
 
-// ─────────────────────────────────────────────
-// MIDDLEWARE: Role-Based Access
-// ─────────────────────────────────────────────
+
 const requireRole = (...roles) => (req, res, next) => {
   if (!roles.includes(req.user.role)) {
     return res.status(403).json({ error: "Access denied. Insufficient permissions." });
@@ -125,9 +101,7 @@ const requireRole = (...roles) => (req, res, next) => {
   next();
 };
 
-// ─────────────────────────────────────────────
-// HELPERS
-// ─────────────────────────────────────────────
+
 const generateTokens = (user) => {
   const payload = { id: user.id, email: user.email, role: user.role };
   const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
@@ -138,11 +112,7 @@ const generateTokens = (user) => {
 const findUser = (id) => db.users.find((u) => u.id === id);
 const findPost = (id) => db.posts.find((p) => p.id === id);
 
-// ─────────────────────────────────────────────
-// AUTH ROUTES
-// ─────────────────────────────────────────────
 
-// POST /auth/register
 app.post("/auth/register", authLimiter, validate(schemas.register), async (req, res) => {
   const { name, email, password, role } = req.body;
 
@@ -168,7 +138,7 @@ app.post("/auth/register", authLimiter, validate(schemas.register), async (req, 
   });
 });
 
-// POST /auth/login
+
 app.post("/auth/login", authLimiter, validate(schemas.login), async (req, res) => {
   const { email, password } = req.body;
 
@@ -188,7 +158,7 @@ app.post("/auth/login", authLimiter, validate(schemas.login), async (req, res) =
   return res.json({ accessToken, refreshToken });
 });
 
-// POST /auth/refresh
+
 app.post("/auth/refresh", (req, res) => {
   const { refreshToken } = req.body;
   if (!refreshToken) {
@@ -204,7 +174,7 @@ app.post("/auth/refresh", (req, res) => {
     const user = findUser(decoded.id);
     if (!user) return res.status(403).json({ error: "User not found." });
 
-    // Rotate refresh token
+  
     db.refreshTokens = db.refreshTokens.filter((t) => t !== refreshToken);
     const tokens = generateTokens(user);
     db.refreshTokens.push(tokens.refreshToken);
@@ -215,18 +185,14 @@ app.post("/auth/refresh", (req, res) => {
   }
 });
 
-// POST /auth/logout
+
 app.post("/auth/logout", authenticate, (req, res) => {
   const { refreshToken } = req.body;
   db.refreshTokens = db.refreshTokens.filter((t) => t !== refreshToken);
   return res.json({ message: "Logged out successfully." });
 });
 
-// ─────────────────────────────────────────────
-// POST ROUTES
-// ─────────────────────────────────────────────
 
-// GET /posts — all posts with their comments
 app.get("/posts", authenticate, (req, res) => {
   const posts = db.posts.map((post) => ({
     ...post,
@@ -248,7 +214,7 @@ app.get("/posts", authenticate, (req, res) => {
   return res.json({ posts, total: posts.length });
 });
 
-// GET /posts/trending — sorted by comment count
+
 app.get("/posts/trending", authenticate, (req, res) => {
   const getTrendingPosts = () => {
     return db.posts
@@ -262,7 +228,7 @@ app.get("/posts/trending", authenticate, (req, res) => {
   return res.json({ trending: getTrendingPosts() });
 });
 
-// GET /posts/:id
+
 app.get("/posts/:id", authenticate, (req, res) => {
   const post = findPost(req.params.id);
   if (!post) return res.status(404).json({ error: "Post not found." });
@@ -304,7 +270,7 @@ app.post("/posts", authenticate, validate(schemas.post), (req, res) => {
   return res.status(201).json({ message: "Post created.", post });
 });
 
-// PUT /posts/:id — update post (owner only)
+
 app.put("/posts/:id", authenticate, validate(schemas.post), (req, res) => {
   const post = findPost(req.params.id);
   if (!post) return res.status(404).json({ error: "Post not found." });
@@ -315,7 +281,7 @@ app.put("/posts/:id", authenticate, validate(schemas.post), (req, res) => {
 
   const { title, content, tags } = req.body;
 
-  // Prevent duplicate titles (excluding current post)
+
   const duplicate = db.posts.find(
     (p) => p.title.toLowerCase() === title.toLowerCase() && p.id !== post.id
   );
@@ -330,7 +296,7 @@ app.put("/posts/:id", authenticate, validate(schemas.post), (req, res) => {
   return res.json({ message: "Post updated.", post });
 });
 
-// DELETE /posts/:id — owner or admin
+
 app.delete("/posts/:id", authenticate, (req, res) => {
   const postIndex = db.posts.findIndex((p) => p.id === req.params.id);
   if (postIndex === -1) return res.status(404).json({ error: "Post not found." });
@@ -342,17 +308,13 @@ app.delete("/posts/:id", authenticate, (req, res) => {
   }
 
   db.posts.splice(postIndex, 1);
-  // Cascade delete comments
+
   db.comments = db.comments.filter((c) => c.postId !== req.params.id);
 
   return res.json({ message: "Post deleted." });
 });
 
-// ─────────────────────────────────────────────
-// COMMENT ROUTES
-// ─────────────────────────────────────────────
 
-// POST /posts/:id/comments — add comment
 app.post("/posts/:id/comments", authenticate, validate(schemas.comment), (req, res) => {
   const post = findPost(req.params.id);
   if (!post) return res.status(404).json({ error: "Post not found." });
@@ -369,7 +331,7 @@ app.post("/posts/:id/comments", authenticate, validate(schemas.comment), (req, r
   return res.status(201).json({ message: "Comment added.", comment });
 });
 
-// DELETE /comments/:id — owner or admin
+
 app.delete("/comments/:id", authenticate, (req, res) => {
   const idx = db.comments.findIndex((c) => c.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: "Comment not found." });
@@ -384,19 +346,11 @@ app.delete("/comments/:id", authenticate, (req, res) => {
   return res.json({ message: "Comment deleted." });
 });
 
-// ─────────────────────────────────────────────
-// ADMIN ROUTES
-// ─────────────────────────────────────────────
-
-// GET /admin/users — list all users (admin only)
 app.get("/admin/users", authenticate, requireRole("admin"), (req, res) => {
   const users = db.users.map(({ passwordHash, ...rest }) => rest);
   return res.json({ users, total: users.length });
 });
 
-// ─────────────────────────────────────────────
-// HEALTH CHECK
-// ─────────────────────────────────────────────
 app.get("/health", (req, res) => {
   res.json({
     status: "ok",
@@ -407,24 +361,17 @@ app.get("/health", (req, res) => {
   });
 });
 
-// ─────────────────────────────────────────────
-// 404 FALLBACK
-// ─────────────────────────────────────────────
+
 app.use((req, res) => {
   res.status(404).json({ error: "Route not found." });
 });
 
-// ─────────────────────────────────────────────
-// GLOBAL ERROR HANDLER
-// ─────────────────────────────────────────────
+
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ error: "Internal server error." });
 });
 
-// ─────────────────────────────────────────────
-// START
-// ─────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`\n🚀 Blogging API running on http://localhost:${PORT}`);
   console.log(`   Health:    GET  /health`);
