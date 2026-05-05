@@ -1,0 +1,23 @@
+{
+  "name": "practicalexam",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": " node index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.3",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.5.0",
+    "joi": "^18.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "module": "^2.0.0",
+    "nodemon": "^3.1.14"
+  }
+}
